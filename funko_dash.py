@@ -19,6 +19,10 @@ def load_data(file_path):
         # Read the CSV file
         df = pd.read_csv(file_path)
         
+        # Debug: Show raw column names and first few rows
+        st.write("Raw column names:", df.columns.tolist())
+        st.write("Raw data sample (before processing):", df.head())
+        
         # Rename columns to user-friendly names
         df = df.rename(columns={
             "console-name": "Funko Category",
@@ -28,16 +32,19 @@ def load_data(file_path):
             "release-date": "Release Date"
         })
         
+        # Verify renaming worked
+        if "Avg. eBay Sell Price" not in df.columns:
+            st.error("Column 'new-price' not found or renamed incorrectly. Available columns: " + str(df.columns.tolist()))
+            return None, "Column renaming failed"
+        
         # Convert Release Date to datetime with "YYYY-MM-DD" format
         df["Release Date"] = pd.to_datetime(df["Release Date"], format='%Y-%m-%d', errors='coerce')
-        
-        # Extract year from Release Date
         df["Release Year"] = df["Release Date"].dt.year
         
-        # Ensure Avg. eBay Sell Price is numeric, coercing errors to NaN
-        df["Avg. eBay Sell Price"] = pd.to_numeric(df["Avg. eBay Sell Price"], errors='coerce')
+        # Convert Avg. eBay Sell Price to numeric, handling potential formatting issues
+        df["Avg. eBay Sell Price"] = pd.to_numeric(df["Avg. eBay Sell Price"].replace('[\$,]', '', regex=True), errors='coerce')
         
-        # Ensure Sales Volume is numeric, coercing errors to NaN
+        # Convert Sales Volume to numeric
         df["Sales Volume"] = pd.to_numeric(df["Sales Volume"], errors='coerce')
         
         # Calculate Market Capitalization
@@ -45,6 +52,9 @@ def load_data(file_path):
         
         # Filter out items with Sales Volume <= 1
         df = df[df["Sales Volume"] > 1]
+        
+        # Debug: Show processed data
+        st.write("Processed data sample (after filtering Sales Volume > 1):", df.head())
         
         return df, None
     except Exception as e:
@@ -63,23 +73,22 @@ else:
     df, error = load_data(file_path)
     if error:
         st.error(f"Error loading or processing data: {error}")
+    elif df is None:
+        st.error("Data loading returned None. Check earlier errors.")
     else:
-        # Debugging output to inspect the data
-        st.write("Raw data preview (after filtering Sales Volume > 1):", df.head())
-        
         # Check for missing or invalid data
         if df["Avg. eBay Sell Price"].isna().all():
-            st.error("All Avg. eBay Sell Price values are missing or non-numeric. Cannot proceed with price filters.")
+            st.error("All Avg. eBay Sell Price values are missing or non-numeric after processing.")
         elif df["Avg. eBay Sell Price"].isna().any():
-            st.warning("Some rows have missing or non-numeric Avg. eBay Sell Price values.")
+            st.warning(f"Some rows ({df['Avg. eBay Sell Price'].isna().sum()}) have missing or non-numeric Avg. eBay Sell Price values.")
         
         if df["Sales Volume"].isna().all():
-            st.error("All Sales Volume values are missing or non-numeric after filtering. Cannot proceed.")
+            st.error("All Sales Volume values are missing or non-numeric after filtering.")
         elif df["Sales Volume"].isna().any():
-            st.warning("Some rows have missing or non-numeric Sales Volume values after filtering.")
+            st.warning(f"Some rows ({df['Sales Volume'].isna().sum()}) have missing or non-numeric Sales Volume values.")
         
         if df["Release Date"].isna().any():
-            st.warning("Some rows have invalid or missing Release Dates, set to NaT.")
+            st.warning(f"Some rows ({df['Release Date'].isna().sum()}) have invalid or missing Release Dates, set to NaT.")
         
         # Proceed with the dashboard if there’s usable data
         st.title("Funko Pop Figure Dashboard")
@@ -87,7 +96,7 @@ else:
         # Sidebar filters
         st.sidebar.header("Filters")
         
-        # Filter for Release Year range (only valid years)
+        # Filter for Release Year range
         valid_years = df["Release Year"].dropna()
         if valid_years.empty:
             st.error("No valid release years found. Cannot set year filter.")
@@ -105,7 +114,7 @@ else:
         # Filter for Avg. eBay Sell Price range
         valid_prices = df["Avg. eBay Sell Price"].dropna()
         if valid_prices.empty:
-            st.error("No valid Avg. eBay Sell Price values found. Cannot set price filter.")
+            st.error("No valid Avg. eBay Sell Price values found after processing.")
         else:
             min_price = float(valid_prices.min())
             max_price = float(valid_prices.max())
@@ -120,7 +129,7 @@ else:
         # Filter for Sales Volume range
         valid_volumes = df["Sales Volume"].dropna()
         if valid_volumes.empty:
-            st.error("No valid Sales Volume values found after filtering. Cannot set volume filter.")
+            st.error("No valid Sales Volume values found after filtering.")
         else:
             min_volume = int(valid_volumes.min())
             max_volume = int(valid_volumes.max())
