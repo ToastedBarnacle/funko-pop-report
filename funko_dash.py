@@ -43,6 +43,9 @@ def load_data(file_path):
         # Calculate Market Capitalization
         df["Market Capitalization"] = df["Sales Volume"] * df["Avg. eBay Sell Price"]
         
+        # Filter out items with Sales Volume <= 1
+        df = df[df["Sales Volume"] > 1]
+        
         return df, None
     except Exception as e:
         return None, str(e)
@@ -62,7 +65,7 @@ else:
         st.error(f"Error loading or processing data: {error}")
     else:
         # Debugging output to inspect the data
-        st.write("Raw data preview:", df.head())
+        st.write("Raw data preview (after filtering Sales Volume > 1):", df.head())
         
         # Check for missing or invalid data
         if df["Avg. eBay Sell Price"].isna().all():
@@ -71,9 +74,9 @@ else:
             st.warning("Some rows have missing or non-numeric Avg. eBay Sell Price values.")
         
         if df["Sales Volume"].isna().all():
-            st.error("All Sales Volume values are missing or non-numeric. Cannot proceed with volume filters.")
+            st.error("All Sales Volume values are missing or non-numeric after filtering. Cannot proceed.")
         elif df["Sales Volume"].isna().any():
-            st.warning("Some rows have missing or non-numeric Sales Volume values.")
+            st.warning("Some rows have missing or non-numeric Sales Volume values after filtering.")
         
         if df["Release Date"].isna().any():
             st.warning("Some rows have invalid or missing Release Dates, set to NaT.")
@@ -117,7 +120,7 @@ else:
         # Filter for Sales Volume range
         valid_volumes = df["Sales Volume"].dropna()
         if valid_volumes.empty:
-            st.error("No valid Sales Volume values found. Cannot set volume filter.")
+            st.error("No valid Sales Volume values found after filtering. Cannot set volume filter.")
         else:
             min_volume = int(valid_volumes.min())
             max_volume = int(valid_volumes.max())
@@ -126,7 +129,7 @@ else:
                 min_volume,
                 max_volume,
                 (min_volume, max_volume),
-                help="Slide to select the range of sales volumes."
+                help="Slide to select the range of sales volumes (minimum is 2 due to initial filter)."
             )
         
         # Apply filters
