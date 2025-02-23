@@ -28,10 +28,10 @@ def load_data(file_path):
             "release-date": "Release Date"
         })
         
-        # Convert Release Date to datetime, coercing errors to NaT
-        df["Release Date"] = pd.to_datetime(df["Release Date"], errors='coerce')
+        # Convert Release Date to datetime with the specified "YYYY-MM-DD" format
+        df["Release Date"] = pd.to_datetime(df["Release Date"], format='%Y-%m-%d', errors='coerce')
         
-        # Extract year from Release Date (will be NaN for invalid dates)
+        # Extract year from Release Date
         df["Release Year"] = df["Release Date"].dt.year
         
         # Calculate Market Capitalization
@@ -55,14 +55,13 @@ else:
     if error:
         st.error(f"Error loading or processing data: {error}")
     else:
-        # Warn about missing or invalid data
+        # Check for missing data in key columns (optional feedback)
         if df["Avg. eBay Sell Price"].isna().any():
-            st.warning("There are rows with missing Avg. eBay Sell Price. These will be excluded from price-based filters.")
+            st.warning("Some rows have missing Avg. eBay Sell Price values.")
         if df["Sales Volume"].isna().any():
-            st.warning("There are rows with missing Sales Volume. These will be excluded from sales volume-based filters.")
-        invalid_dates = df[df["Release Date"].isna()]
-        if not invalid_dates.empty:
-            st.warning(f"There are {len(invalid_dates)} rows with invalid release dates. These have been set to NaT.")
+            st.warning("Some rows have missing Sales Volume values.")
+        if df["Release Date"].isna().any():
+            st.warning("Some rows have invalid or missing Release Dates, set to NaT.")
         
         # Proceed with the dashboard
         st.title("Funko Pop Figure Dashboard")
@@ -71,18 +70,16 @@ else:
         st.sidebar.header("Filters")
         
         # Filter for Release Year range
-        min_year = int(df["Release Year"].min(skipna=True))
-        max_year = int(df["Release Year"].max(skipna=True))
+        valid_years = df["Release Year"].dropna()
+        min_year = int(valid_years.min())
+        max_year = int(valid_years.max())
         selected_years = st.sidebar.slider(
             "Select release year range",
             min_year,
             max_year,
             (min_year, max_year),
-            help="Slide to select the range of release years to include."
+            help="Slide to select the range of release years."
         )
-        
-        # Checkbox to include figures with unknown release years
-        include_unknown_years = st.sidebar.checkbox("Include figures with unknown release years", value=True)
         
         # Filter for Avg. eBay Sell Price range
         min_price = float(df["Avg. eBay Sell Price"].min())
@@ -92,7 +89,7 @@ else:
             min_price,
             max_price,
             (min_price, max_price),
-            help="Slide to select the range of average eBay sell prices to include."
+            help="Slide to select the range of average eBay sell prices."
         )
         
         # Filter for Sales Volume range
@@ -103,15 +100,11 @@ else:
             min_volume,
             max_volume,
             (min_volume, max_volume),
-            help="Slide to select the range of sales volumes to include."
+            help="Slide to select the range of sales volumes."
         )
         
         # Apply filters
-        if include_unknown_years:
-            year_filter = (df["Release Year"].between(selected_years[0], selected_years[1])) | df["Release Year"].isna()
-        else:
-            year_filter = df["Release Year"].between(selected_years[0], selected_years[1])
-        
+        year_filter = df["Release Year"].between(selected_years[0], selected_years[1])
         price_filter = df["Avg. eBay Sell Price"].between(selected_price[0], selected_price[1])
         volume_filter = df["Sales Volume"].between(selected_volume[0], selected_volume[1])
         
@@ -119,9 +112,9 @@ else:
         
         # Check if filtered data is empty
         if filtered_df.empty:
-            st.info("No data matches the selected filters. Try adjusting the filters or including unknown release years.")
+            st.info("No data matches the selected filters. Try adjusting the ranges.")
         else:
-            # Display metrics based on filtered data
+            # Display metrics and visualizations
             st.subheader("Number of Figures by Funko Category")
             category_counts = filtered_df["Funko Category"].value_counts()
             st.bar_chart(category_counts, use_container_width=True)
@@ -147,10 +140,9 @@ else:
                 use_container_width=True
             )
             
-            # Optional: Show the filtered data table with relevant columns
-            if st.checkbox("Show filtered data", help="Check to display the entire filtered dataset."):
+            # Optional: Show the filtered data table
+            if st.checkbox("Show filtered data", help="Check to display the filtered dataset."):
                 st.subheader("Filtered Data")
-                relevant_columns = ["Figure Name", "Funko Category", "Avg. eBay Sell Price", "Sales Volume", "Release Year", "Market Capitalization"]
-                display_df = filtered_df[relevant_columns].copy()
-                display_df["Release Year"] = display_df["Release Year"].fillna("Unknown")
-                st.dataframe(display_df, use_container_width=True)
+                relevant_columns = ["Figure Name", "Funko Category", "Avg. eBay Sell Price", 
+                                   "Sales Volume", "Release Year", "Market Capitalization"]
+                st.dataframe(filtered_df[relevant_columns], use_container_width=True)
