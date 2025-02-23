@@ -1,108 +1,67 @@
 import streamlit as st
 import pandas as pd
+import os
 
-# Function to load and preprocess the data, cached for performance
 @st.cache_data
-def load_data():
+def load_data(file_path):
     """
-    Load the Funko Pop CSV data, rename columns, and calculate derived metrics.
-    Returns the processed DataFrame.
+    Load and process the Funko Pop CSV data.
+    
+    Args:
+        file_path (str): Path to the CSV file.
+    
+    Returns:
+        tuple: (DataFrame or None, error message or None)
+            - If successful: (processed DataFrame, None)
+            - If an error occurs: (None, error message as string)
     """
-    df = pd.read_csv("funko_data.csv")
-    # Rename columns to user-friendly names
-    df = df.rename(columns={
-        "console-name": "Funko Category",
-        "product-name": "Figure Name",
-        "new-price": "Avg. eBay Sell Price",
-        "sales-volume": "Sales Volume",
-        "release-date": "Release Date"
-    })
-    # Convert Release Date to datetime and extract year
-    df["Release Date"] = pd.to_datetime(df["Release Date"])
-    df["Release Year"] = df["Release Date"].dt.year
-    # Calculate Market Capitalization
-    df["Market Capitalization"] = df["Sales Volume"] * df["Avg. eBay Sell Price"]
-    return df
+    try:
+        # Read the CSV file
+        df = pd.read_csv(file_path)
+        
+        # Rename columns to user-friendly names
+        df = df.rename(columns={
+            "console-name": "Funko Category",
+            "product-name": "Figure Name",
+            "new-price": "Avg. eBay Sell Price",
+            "sales-volume": "Sales Volume",
+            "release-date": "Release Date"
+        })
+        
+        # Convert Release Date to datetime and extract year
+        df["Release Date"] = pd.to_datetime(df["Release Date"])
+        df["Release Year"] = df["Release Date"].dt.year
+        
+        # Calculate Market Capitalization
+        df["Market Capitalization"] = df["Sales Volume"] * df["Avg. eBay Sell Price"]
+        
+        return df, None
+    except Exception as e:
+        return None, str(e)
 
-# Load the data
-df = load_data()
+# Define the file path
+file_path = "funko_data.csv"
 
-# Set the dashboard title
-st.title("Funko Pop Figure Dashboard")
-
-# Sidebar filters
-st.sidebar.header("Filters")
-
-# Filter for Release Year range
-min_year = int(df["Release Year"].min())
-max_year = int(df["Release Year"].max())
-selected_years = st.sidebar.slider(
-    "Select release year range",
-    min_year,
-    max_year,
-    (min_year, max_year),
-    help="Slide to select the range of release years to include."
-)
-
-# Filter for Avg. eBay Sell Price range
-min_price = float(df["Avg. eBay Sell Price"].min())
-max_price = float(df["Avg. eBay Sell Price"].max())
-selected_price = st.sidebar.slider(
-    "Select price range",
-    min_price,
-    max_price,
-    (min_price, max_price),
-    help="Slide to select the range of average eBay sell prices to include."
-)
-
-# Filter for Sales Volume range
-min_volume = int(df["Sales Volume"].min())
-max_volume = int(df["Sales Volume"].max())
-selected_volume = st.sidebar.slider(
-    "Select sales volume range",
-    min_volume,
-    max_volume,
-    (min_volume, max_volume),
-    help="Slide to select the range of sales volumes to include."
-)
-
-# Filter the DataFrame based on selected ranges
-filtered_df = df[
-    (df["Release Year"] >= selected_years[0]) &
-    (df["Release Year"] <= selected_years[1]) &
-    (df["Avg. eBay Sell Price"] >= selected_price[0]) &
-    (df["Avg. eBay Sell Price"] <= selected_price[1]) &
-    (df["Sales Volume"] >= selected_volume[0]) &
-    (df["Sales Volume"] <= selected_volume[1])
-]
-
-# Display metrics based on filtered data
-st.subheader("Number of Figures by Funko Category")
-category_counts = filtered_df["Funko Category"].value_counts()
-st.bar_chart(category_counts, use_container_width=True)
-
-st.subheader("Top 10 Figures by Market Capitalization")
-top_market_cap = filtered_df.sort_values(by="Market Capitalization", ascending=False).head(10)
-st.dataframe(
-    top_market_cap[["Figure Name", "Funko Category", "Market Capitalization"]],
-    use_container_width=True
-)
-
-st.subheader("Top 10 Figures by Sales Volume")
-top_sales_volume = filtered_df.sort_values(by="Sales Volume", ascending=False).head(10)
-st.dataframe(
-    top_sales_volume[["Figure Name", "Funko Category", "Sales Volume"]],
-    use_container_width=True
-)
-
-st.subheader("Top 10 Figures by Avg. eBay Sell Price")
-top_price = filtered_df.sort_values(by="Avg. eBay Sell Price", ascending=False).head(10)
-st.dataframe(
-    top_price[["Figure Name", "Funko Category", "Avg. eBay Sell Price"]],
-    use_container_width=True
-)
-
-# Optional: Show the filtered data table if the user wants to see it
-if st.checkbox("Show filtered data", help="Check to display the entire filtered dataset."):
-    st.subheader("Filtered Data")
-    st.dataframe(filtered_df, use_container_width=True)
+# Check if the file exists and is not empty
+if not os.path.exists(file_path):
+    st.error(f"Error: {file_path} not found in the app directory.")
+elif os.path.getsize(file_path) == 0:
+    st.error(f"Error: {file_path} is empty.")
+else:
+    # Load and process the data
+    df, error = load_data(file_path)
+    if error:
+        st.error(f"Error loading or processing data: {error}")
+    else:
+        # Proceed with the dashboard
+        st.title("Funko Pop Figure Dashboard")
+        
+        # Display a preview of the loaded data (replace with your dashboard code)
+        st.write("Data loaded successfully. Here is a preview:", df.head())
+        
+        # Add your dashboard components below, e.g., filters, charts, tables
+        # Example:
+        # st.subheader("Filter by Category")
+        # category = st.selectbox("Select Funko Category", df["Funko Category"].unique())
+        # filtered_df = df[df["Funko Category"] == category]
+        # st.write(filtered_df)
