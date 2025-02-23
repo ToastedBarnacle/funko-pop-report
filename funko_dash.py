@@ -28,12 +28,19 @@ def load_data(file_path):
             "release-date": "Release Date"
         })
         
-        # Convert Release Date to datetime and extract year
-        df["Release Date"] = pd.to_datetime(df["Release Date"])
+        # Convert Release Date to datetime, coercing errors to NaT
+        df["Release Date"] = pd.to_datetime(df["Release Date"], errors='coerce')
+        
+        # Extract year from Release Date (will be NaN for invalid dates)
         df["Release Year"] = df["Release Date"].dt.year
         
         # Calculate Market Capitalization
         df["Market Capitalization"] = df["Sales Volume"] * df["Avg. eBay Sell Price"]
+        
+        # Check for invalid dates and warn the user
+        invalid_dates = df[df["Release Date"].isna()]
+        if not invalid_dates.empty:
+            st.warning(f"There are {len(invalid_dates)} rows with invalid release dates. These have been set to NaT.")
         
         return df, None
     except Exception as e:
