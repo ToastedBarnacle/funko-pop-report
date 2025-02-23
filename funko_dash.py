@@ -19,10 +19,6 @@ def load_data(file_path):
         # Read the CSV file
         df = pd.read_csv(file_path)
         
-        # Debug: Show raw column names and first few rows
-        st.write("Raw column names:", df.columns.tolist())
-        st.write("Raw data sample (before processing):", df.head())
-        
         # Rename columns to user-friendly names
         df = df.rename(columns={
             "console-name": "Funko Category",
@@ -52,9 +48,6 @@ def load_data(file_path):
         
         # Filter out items with Sales Volume <= 1
         df = df[df["Sales Volume"] > 1]
-        
-        # Debug: Show processed data
-        st.write("Processed data sample (after filtering Sales Volume > 1):", df.head())
         
         return df, None
     except Exception as e:
