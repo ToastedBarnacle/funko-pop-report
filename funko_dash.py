@@ -28,11 +28,17 @@ def load_data(file_path):
             "release-date": "Release Date"
         })
         
-        # Convert Release Date to datetime with the specified "YYYY-MM-DD" format
+        # Convert Release Date to datetime with "YYYY-MM-DD" format
         df["Release Date"] = pd.to_datetime(df["Release Date"], format='%Y-%m-%d', errors='coerce')
         
         # Extract year from Release Date
         df["Release Year"] = df["Release Date"].dt.year
+        
+        # Ensure Avg. eBay Sell Price is numeric, coercing errors to NaN
+        df["Avg. eBay Sell Price"] = pd.to_numeric(df["Avg. eBay Sell Price"], errors='coerce')
+        
+        # Ensure Sales Volume is numeric, coercing errors to NaN
+        df["Sales Volume"] = pd.to_numeric(df["Sales Volume"], errors='coerce')
         
         # Calculate Market Capitalization
         df["Market Capitalization"] = df["Sales Volume"] * df["Avg. eBay Sell Price"]
@@ -55,60 +61,80 @@ else:
     if error:
         st.error(f"Error loading or processing data: {error}")
     else:
-        # Check for missing data in key columns (optional feedback)
-        if df["Avg. eBay Sell Price"].isna().any():
-            st.warning("Some rows have missing Avg. eBay Sell Price values.")
-        if df["Sales Volume"].isna().any():
-            st.warning("Some rows have missing Sales Volume values.")
+        # Debugging output to inspect the data
+        st.write("Raw data preview:", df.head())
+        
+        # Check for missing or invalid data
+        if df["Avg. eBay Sell Price"].isna().all():
+            st.error("All Avg. eBay Sell Price values are missing or non-numeric. Cannot proceed with price filters.")
+        elif df["Avg. eBay Sell Price"].isna().any():
+            st.warning("Some rows have missing or non-numeric Avg. eBay Sell Price values.")
+        
+        if df["Sales Volume"].isna().all():
+            st.error("All Sales Volume values are missing or non-numeric. Cannot proceed with volume filters.")
+        elif df["Sales Volume"].isna().any():
+            st.warning("Some rows have missing or non-numeric Sales Volume values.")
+        
         if df["Release Date"].isna().any():
             st.warning("Some rows have invalid or missing Release Dates, set to NaT.")
         
-        # Proceed with the dashboard
+        # Proceed with the dashboard if there’s usable data
         st.title("Funko Pop Figure Dashboard")
         
         # Sidebar filters
         st.sidebar.header("Filters")
         
-        # Filter for Release Year range
+        # Filter for Release Year range (only valid years)
         valid_years = df["Release Year"].dropna()
-        min_year = int(valid_years.min())
-        max_year = int(valid_years.max())
-        selected_years = st.sidebar.slider(
-            "Select release year range",
-            min_year,
-            max_year,
-            (min_year, max_year),
-            help="Slide to select the range of release years."
-        )
+        if valid_years.empty:
+            st.error("No valid release years found. Cannot set year filter.")
+        else:
+            min_year = int(valid_years.min())
+            max_year = int(valid_years.max())
+            selected_years = st.sidebar.slider(
+                "Select release year range",
+                min_year,
+                max_year,
+                (min_year, max_year),
+                help="Slide to select the range of release years."
+            )
         
         # Filter for Avg. eBay Sell Price range
-        min_price = float(df["Avg. eBay Sell Price"].min())
-        max_price = float(df["Avg. eBay Sell Price"].max())
-        selected_price = st.sidebar.slider(
-            "Select price range",
-            min_price,
-            max_price,
-            (min_price, max_price),
-            help="Slide to select the range of average eBay sell prices."
-        )
+        valid_prices = df["Avg. eBay Sell Price"].dropna()
+        if valid_prices.empty:
+            st.error("No valid Avg. eBay Sell Price values found. Cannot set price filter.")
+        else:
+            min_price = float(valid_prices.min())
+            max_price = float(valid_prices.max())
+            selected_price = st.sidebar.slider(
+                "Select price range",
+                min_price,
+                max_price,
+                (min_price, max_price),
+                help="Slide to select the range of average eBay sell prices."
+            )
         
         # Filter for Sales Volume range
-        min_volume = int(df["Sales Volume"].min())
-        max_volume = int(df["Sales Volume"].max())
-        selected_volume = st.sidebar.slider(
-            "Select sales volume range",
-            min_volume,
-            max_volume,
-            (min_volume, max_volume),
-            help="Slide to select the range of sales volumes."
-        )
+        valid_volumes = df["Sales Volume"].dropna()
+        if valid_volumes.empty:
+            st.error("No valid Sales Volume values found. Cannot set volume filter.")
+        else:
+            min_volume = int(valid_volumes.min())
+            max_volume = int(valid_volumes.max())
+            selected_volume = st.sidebar.slider(
+                "Select sales volume range",
+                min_volume,
+                max_volume,
+                (min_volume, max_volume),
+                help="Slide to select the range of sales volumes."
+            )
         
         # Apply filters
-        year_filter = df["Release Year"].between(selected_years[0], selected_years[1])
-        price_filter = df["Avg. eBay Sell Price"].between(selected_price[0], selected_price[1])
-        volume_filter = df["Sales Volume"].between(selected_volume[0], selected_volume[1])
-        
-        filtered_df = df[year_filter & price_filter & volume_filter]
+        filtered_df = df[
+            df["Release Year"].between(selected_years[0], selected_years[1], inclusive='both') &
+            df["Avg. eBay Sell Price"].between(selected_price[0], selected_price[1], inclusive='both') &
+            df["Sales Volume"].between(selected_volume[0], selected_volume[1], inclusive='both')
+        ]
         
         # Check if filtered data is empty
         if filtered_df.empty:
